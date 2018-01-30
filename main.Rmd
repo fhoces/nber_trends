@@ -1,0 +1,156 @@
+---
+title: "Stilized Facts about NBER Working Papers: a fully reproducible analysis"
+author: "Fernando Hoces de la Guardia"
+date: "1/29/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Web Scrapping (optional)
+
+First: we obtain the data from the NBER website. This task is achieve through the following steps:
+ 1 - Identify the last paper pubished  
+ 2 - Run a loop that iterates over the webpage of each paper. For each paper: 
+  2.1 - For
+ 
+
+
+```{r web  scrapping1}
+# Define function to the last working paper
+last.wp.f <- function() {
+  # Download the NBER news web page
+  readLines("https://www.nber.org/new.html") %>% 
+    # then pull al the strings of the form "w[0-9]{5}"
+    str_extract("w[0-9]{5}") %>%
+    # then keep only the numeric part of those strings. 
+    str_extract("[0-9]{5}") %>% 
+    # transform to numeric
+    as.numeric() %>% 
+    # find the maximum
+    max(na.rm = TRUE)
+}
+
+# Get the last working paper
+last.wp <- last.wp.f()
+
+# Define a vector that enumerates all possible papers
+papers <- 1:last.wp
+
+# Build a empty data set that will contain all the information of each paper (row) 
+df <- data.frame(authors = rep(NA, length(papers)), 
+           title  = rep(NA, length(papers)), 
+           date = rep(NA, length(papers)), 
+           abstract = rep(NA, length(papers)), 
+           published = rep(NA, length(papers)),
+           NBER_cat = rep(NA, length(papers)))
+
+j <- 0
+for (i in papers) {
+  j <- j + 1
+  ## read in the website that contains links to all the pages where we want to download data
+  raw_lines <- tryCatch(
+              readLines( paste("https://www.nber.org/papers/w", i, sep = "") ), 
+              error = function(e) NULL)
+  # If there is no such paper, jump to next one
+  while (is.null(raw_lines)) {
+    i <- i + 1
+    j <- j + 1
+    raw_lines <- tryCatch(
+      readLines(paste("https://www.nber.org/papers/w", i, sep = "")), 
+      error = function(e) NULL)
+    }
+  ## define pattern of the fields that you want to get from each webstie
+  #Authors
+  pattern_1 <- '<meta name="citation_author" content=.*' 
+  #Title
+  pattern_2 <- '<meta name="citation_title" content=.*' 
+  #Publication date
+  pattern_3 <- '<meta name="DC.Date" content=.*' 
+  #pattern_4 should be the abstract, but so far I can pull it directly
+  
+  #Was it published? NEED IMPROVING: if empty, go two lines below
+  pattern_5 <- "<p id='published_line'>.*" 
+  #NBER Program(s)
+  # regmatches(string, gregexpr("([A-Z]{1,4})\\.html", string))
+  pattern_6 <- "<b>NBER Program.*" 
+  
+  ## identify which lines contain those urls
+  extract_lines_1 <- grepl(pattern_1, raw_lines)
+  extract_lines_2 <- grepl(pattern_2, raw_lines)
+  extract_lines_3 <- grepl(pattern_3, raw_lines)
+  extract_lines_5 <- grepl(pattern_5, raw_lines)
+  extract_lines_6 <- grepl(pattern_6, raw_lines)
+  
+  
+  sub('(<meta name=\"citation_author\" content=\")(.*)(\">)',"\\2", matched.lines_1)
+
+  
+  
+  matched.lines_1 <- raw_lines[extract_lines_1]
+  matched.lines_2 <- raw_lines[extract_lines_2]
+  matched.lines_3 <- raw_lines[extract_lines_3]
+  matched.lines_5 <- raw_lines[extract_lines_5]
+  matched.lines_6 <- raw_lines[extract_lines_6]
+  
+  ## clean the extracted lines
+
+  get.line <- function(pattern_1, group_pat) {
+    matched.lines <- raw_lines[grepl(pattern_1, raw_lines)]
+    sub(group_pat,"\\2", matched.lines) 
+  }
+    
+  df$authors[j] <- get.line(pattern_1, 
+             '(<meta name=\"citation_author\" content=\")(.*)(\">)') %>% 
+      paste(collapse = "-*-" )
+
+  df$title[j] <- get.line(pattern_2, 
+             '(<meta name="citation_title" content=\")(.*)(\">)')
+      
+  df$date[j] <- get.line(pattern_3, 
+             '(<meta name="DC.Date" content=\")(.*)(\">)')
+  
+  df$abstract[j]<- raw_lines[which.max(nchar(raw_lines))]
+  
+  df$published[j] <- ifelse(length(grep(pattern_5, raw_lines, value = TRUE)) == 0,
+                            "not published", "published")
+  
+  df$NBER_cat[j] <- ifelse(length(raw_lines[grepl(pattern_6, raw_lines)]) == 0,
+                            "No Category", "published")
+
+
+  # Figure out how to get 'everything between .html and /, multiple times'
+  #clean_lines6 <- sub('(<meta name="DC.Date" content=\")(.*)(\">)', "\\2", matched.lines_6)
+
+
+  if (j%%50 == 0) {
+    print(paste(round(j/length(papers), 3) * 100,"% done", sep = ""))
+    } 
+}
+
+MY.FILE <- paste(MY.PATH,"", sep="" )
+# CHANGE THIS EVERY DAY
+save(df, file = "all_NBER_Papers_v1.RData")
+
+if (FALSE) {
+  load("C:/Users/fhocesde/Documents/Oct_20.RData", envir = parent.frame(), verbose = FALSE)
+  df1 <- df
+  load("C:/Users/fhocesde/Documents/all_NBER_Papers2.RData", envir = parent.frame(), verbose = FALSE)
+  df1 <- rbind(df1, df)
+  load("C:/Users/fhocesde/Documents/Oct_22.RData", envir = parent.frame(), verbose = FALSE)
+  df1 <- rbind(df1, df)
+  load("C:/Users/fhocesde/Documents/Oct_26.RData", envir = parent.frame(), verbose = FALSE)
+  df1 <- rbind(df1, df)
+  load("C:/Users/fhocesde/Documents/Oct_28.RData", envir = parent.frame(), verbose = FALSE)
+  df1 <- rbind(df1, df)
+  load("C:/Users/fhocesde/Documents/Oct_29.RData", envir = parent.frame(), verbose = FALSE)
+  df1 <- rbind(df1, df)
+}
+
+print(Sys.time() - start.time)
+```
+
+
+
