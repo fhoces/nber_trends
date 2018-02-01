@@ -111,9 +111,49 @@ scrape.nber.f <- function(papers.var){
   return(df)
 }
 
+# run the scrapping function
 start.time <- Sys.time()
 df <- scrape.nber.f(papers.var = papers + 2e4)
 print(Sys.time() - start.time)
+
+
+# Identify the data: (apply some hash function)
+
+# upload to dataverse
+Sys.setenv("DATAVERSE_SERVER" = "dataverse.harvard.edu")
+Sys.setenv("DATAVERSE_KEY" = "b4d2c057-79a6-42ad-8749-9f9c2b711499")
+
+# create a dataverse
+dat <- create_dataverse("mydataverse")
+
+
+# create a list of metadata
+metadat <- list(title = "My Study",
+                creator = "Doe, John",
+                description = "An example study")
+
+# create a list of metadata
+metadat <- list(title = "My Study",
+                creator = "Doe, John",
+                description = "An example study")
+
+# create the dataset
+dat <- initiate_dataset("dataverse.harvard.edu", body = metadat)
+
+# 
+# create the dataset
+ds <- create_dataset("mydataverse")
+
+# add files
+tmp <- tempfile()
+write.csv(iris, file = tmp)
+f <- add_dataset_file(file = tmp, dataset = ds)
+
+# publish dataset
+publish_dataset(ds)
+
+# dataset will now be published
+get_dataverse("mydataverse")
 
 ```
 
