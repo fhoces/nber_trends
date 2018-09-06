@@ -1,0 +1,436 @@
+
+
+###############################################
+###### Setup ##################################
+# Loading required libraries
+list.of.packages <- c("tidyverse", "gender", "arm")
+
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages, repos= "http://cran.cnr.berkeley.edu/")
+
+lapply(list.of.packages, require, character.only = TRUE)
+# Setting working directory
+library(here)
+
+# Setting up workflow
+for (folder in c("rawdata", "data", "documentation", "output", "paper", "scripts")) {
+  if ( !(folder %in% dir()) ) {
+    dir.create(folder)    
+  }
+}
+
+#readme_file <- file.path("README.md")
+writeLines("# Descriptive statistics of NBER Working Paper Series", "README.md")
+
+
+
+###############################################
+###### Web Scrapping ##########################
+
+
+
+# Define function to the last working paper
+last.wp.f <- function() {
+  # Download the NBER news web page
+  readLines("https://www.nber.org/new.html") %>% 
+    # then pull al the strings of the form "w[0-9]{5}"
+    str_extract("w[0-9]{5}") %>%
+    # then keep only the numeric part of those strings. 
+    str_extract("[0-9]{5}") %>% 
+    # transform to numeric
+    as.numeric() %>% 
+    # find the maximum
+    max(na.rm = TRUE)
+}
+
+# Get the last working paper
+last.wp <- last.wp.f()
+#last.wp <- 10
+# Define a vector that enumerates all possible papers
+papers <- 1:last.wp
+
+## Define function toget the extracted lines that match "pattern", and 
+## keep only the second group according to "group_pat"
+get.line.f <- function(pattern, group_pat) {
+  matched.lines <- grep(pattern, raw_lines, value = TRUE)
+  sub(group_pat,"\\2", matched.lines) 
+}
+
+scrape.nber.f <- function(papers.var){
+  # Build a empty data set that will contain all the information of each paper (row) 
+  df <- data.frame(authors = rep(NA, length(papers.var)), 
+                   title  = rep(NA, length(papers.var)), 
+                   date = rep(NA, length(papers.var)), 
+                   abstract = rep(NA, length(papers.var)), 
+                   published = rep(NA, length(papers.var)),
+                   NBER_cat = rep(NA, length(papers.var)))
+  # "j" tracks the data that stores the results  
+  j <- 0
+  for (i in papers.var) {
+    j <- j + 1
+    ## read in the website that contains links to all the pages where we want to download data
+    raw_lines <- tryCatch(
+      readLines( paste("https://www.nber.org/papers/w", i, sep = "") ), 
+      error = function(e) NULL)
+    # If there is no such paper, jump to next one
+    while (is.null(raw_lines)) {
+      i <- i + 1
+      j <- j + 1
+      raw_lines <- tryCatch(
+        readLines(paste("https://www.nber.org/papers/w", i, sep = "")), 
+        error = function(e) NULL)
+    }
+    
+    df$authors[j] <- get.line.f('<meta name="citation_author" content=.*', 
+                                '(<meta name=\"citation_author\" content=\")(.*)(\">)') %>% 
+      paste(collapse = "-*-" )
+    
+    df$title[j] <- get.line.f('<meta name="citation_title" content=.*' , 
+                              '(<meta name="citation_title" content=\")(.*)(\">)')
+    
+    df$date[j] <- get.line.f('<meta name="DC.Date" content=.*', 
+                             '(<meta name="DC.Date" content=\")(.*)(\">)')
+    
+    df$abstract[j]<- raw_lines[which.max(nchar(raw_lines))]
+    
+    df$published[j] <- ifelse(length(grep("<p id='published_line'>.*"
+                                          , raw_lines, value = TRUE)) == 0,
+                              "not published", "published")
+    # Get lines with NBER categories and clean them
+    clean.categ <- grep("<b>NBER Program.*", raw_lines, value = TRUE) %>% 
+      str_extract_all("([A-Z]{1,4})\\.html") %>% 
+      str_extract_all("[A-Z]{1,4}") %>% 
+      unlist() %>% paste(collapse = "-*-")
+    
+    df$NBER_cat[j] <- ifelse(length(clean.categ) == 0,
+                             "No Category", clean.categ)
+    # Track progress
+    if (j%%50 == 0) {
+      print(paste(round(j/length(papers.var), 3) * 100,"% done", sep = ""))
+    } 
+  }
+  return(df)
+}
+
+# run the scrapping function
+start.time <- Sys.time()
+df <- scrape.nber.f(papers.var = papers)
+print(Sys.time() - start.time)
+
+# save, export to dataverse, pull from dv, set random check, do plot, 
+
+
+
+###############################################
+###### Attempt to updload data to datavers (failed so far)
+if (FALSE) {
+  # Identify the data: (apply some hash function)
+  
+  # upload to dataverse/osf
+  Sys.setenv("DATAVERSE_SERVER" = "dataverse.harvard.edu")
+  Sys.setenv("DATAVERSE_KEY" = "b4d2c057-79a6-42ad-8749-9f9c2b711499")
+  
+  # create a dataverse
+  dat <- create_dataverse("mydataverse")
+  
+  
+  # create a list of metadata
+  metadat <- list(title = "My Study",
+                  creator = "Doe, John",
+                  description = "An example study")
+  
+  # create a list of metadata
+  metadat <- list(title = "My Study",
+                  creator = "Doe, John",
+                  description = "An example study")
+  
+  # create the dataset
+  dat <- initiate_dataset("dataverse.harvard.edu", body = metadat)
+  
+  # 
+  # create the dataset
+  ds <- create_dataset("mydataverse")
+  
+  # add files
+  tmp <- tempfile()
+  write.csv(iris, file = tmp)
+  f <- add_dataset_file(file = tmp, dataset = ds)
+  
+  # publish dataset
+  publish_dataset(ds)
+  
+  # dataset will now be published
+  get_dataverse("mydataverse")
+  
+  main <- create_project(title = "NBER Trends")
+  sub <- create_component(id = main, title = "Data")
+  x <- rnorm(1000, 2, 10)
+  write.csv(x, 'test.csv')
+  up_df <- upload_files(id = sub, path = "test.csv")
+  download.file("https://ndownloader.figshare.com/files/2292169",
+                "data/portal_data_joined.csv")
+  #You are now ready to load the data:
+  
+  surveys <- read.csv("portal_data_joined.csv")
+}
+
+
+###############################################
+###### Load data and analyze ###################
+
+load("./rawdata/all_NBER_Papers_v1.RData")
+
+
+
+##Plot 1
+
+df$num_authors <- sapply(strsplit(df$authors, "-*-", fixed = TRUE), length)
+
+df %>% mutate(time = format(as.Date(df$date), "%Y")) %>% 
+  group_by(time) %>% 
+  summarise("ave_author_num"= mean(num_authors)) %>%   
+  ggplot(aes(x=time, y = ave_author_num,  group = 1)) + 
+  geom_line() +
+  labs(title = "Average Number of Authors Per NBER Working Paper")
+
+
+##Plot 2
+
+# Extract NBER categories from html text
+aux1 <- with(df,  regmatches(NBER_cat, 
+                             gregexpr("([A-Z]{1,4})\\.html", NBER_cat)))
+# Paste multiple categories according to the following format "CAT1-*-CAT2-*-..."
+df$NBER_cat <- sapply(aux1, function(y) paste( sub(x =y, ".html", "") , collapse = "-*-" ) )
+
+# delete if no NBER category (306 papers)
+df1 <- df[df$NBER_cat!='', ]
+# For each paper: separate each cateary. 
+asd1 <- strsplit(df1$NBER_cat[], "-*-", fixed = TRUE)
+
+# Get the number of categories per paper
+n1 <- sapply(asd1, length)
+
+# Generate numeric var for published and repeat for each repetition (category) of the paper
+published <- rep(1*(df1$published!="Not published"), times = n1)
+# Get year of working paper and expand 
+date1 <- format(as.Date( rep(df1$date, times = n1) ), "%Y")
+# Same for categories
+categories <- unlist(asd1)
+
+# Expand authors var
+authors <- rep((df1$authors), times = n1)
+
+# Create a data frame with new vars
+df2 <- data.frame(authors,published, categories, date1, stringsAsFactors = FALSE)
+
+# Same as with categories, but for authors. Final data set has 79163 obs.
+asd2 <- strsplit(df2$authors, "-*-", fixed = TRUE)
+n2 <- sapply(asd2, length)
+published <- rep(df2$published, times = n2)
+categories <- rep(df2$categories, times = n2)
+date1 <- rep(df2$date1, times = n2)
+
+# Get the first name of each author.
+first.name <- gsub("^(.*?),\\s(\\w+).*", "\\2",  unlist(asd2))
+
+# Impute gender to each name
+temp1 <- gender::gender(first.name)
+# Keep only one obs per name
+temp1 <- temp1[!duplicated(temp1),]
+
+# Large size data with name, date and categories
+temp2 <- data.frame("name"=first.name, date1, categories, 
+                    "full_name" =unlist(asd2), published)
+
+# Merge with gender
+temp3 <- right_join(temp1, temp2)
+# Delete missing obs NEED TO UNDERSTAND THE MISMATCH (7471)
+temp3 <- temp3[!is.na(temp3$gender),]
+
+# Plot percentage of female authors over time: general and by categories
+plot1 <- temp3 %>% 
+  mutate(num_gen = 1*(gender != 'male')) %>% 
+  group_by(date1, categories) %>% 
+  summarise("perc_fem" = mean(num_gen,na.rm=TRUE), 
+            "n_cat" = n()) %>% 
+  filter(date1%in%1985:2015) %>% 
+  filter(n_cat>30) %>% 
+  ggplot(aes(x=date1, y = perc_fem, color = categories, group = categories)) + 
+  geom_line() +
+  labs(title = "Percentage of Female Authors in NBER Working Papers", 
+       subtitle = "Overall (red) and by research programe") 
+
+temp_df <- temp3 %>% 
+  mutate(num_gen = 1*(gender != 'male')) %>% 
+  group_by(date1) %>% 
+  summarise("perc_fem" = mean(num_gen,na.rm=TRUE)) %>% 
+  filter(date1%in%1985:2015)
+
+plot1 + 
+  geom_line(data = temp_df, 
+            aes(x = date1, y = perc_fem, group=1), 
+            color = "red", size = 2) 
+
+
+
+######
+df1 <- df[!is.na(df$NBER_cat), ]
+asd1 <- strsplit(df1$NBER_cat, "-*-", fixed = TRUE)
+length(unique(unlist(asd1)))
+n <- sapply(asd1, length)
+published <- rep(1*(df1$published!="Not published"), times = n)
+date1 <- format(as.Date( rep(df1$date, times = n) ), "%Y")
+categories <- unlist(asd1)
+authors <- rep((df1$authors), times = n)
+df3 <- data.frame(authors,published, categories, date1, stringsAsFactors = FALSE)
+
+# Publication rates over time by NBER program & total 
+plot2 <- temp3 %>% 
+  group_by(date1, categories) %>% 
+  summarise("pub_perc" = mean(published), n_papers = n()) %>% 
+  filter(date1%in%1985:2010) %>% 
+  filter(n_papers> 30) %>%   
+  ggplot(aes(x=date1, y = pub_perc, 
+             color = categories, group = categories)) + 
+  geom_line() +
+  labs(title = "Percentage Of NBER Working Papers Published In Journals", 
+       subtitle = "Overall (red) and by research programe") 
+
+temp_df <- temp3 %>% 
+  group_by(date1) %>% 
+  summarise("pub_perc" = mean(published,na.rm=TRUE)) %>% 
+  filter(date1%in%1985:2010)
+
+plot2 + 
+  geom_line(data = temp_df, 
+            aes(x = date1, y = pub_perc, group=1), 
+            color = "red", size = 2) 
+
+
+# Publication rates over time by total and by gender 
+plot3 <- temp3 %>% 
+  group_by(date1, gender) %>% 
+  summarise("pub_perc" = mean(published), n_papers = n()) %>% 
+  filter(date1%in%1985:2010) %>% 
+  filter(n_papers> 30) %>%   
+  ggplot(aes(x=date1, y = pub_perc, 
+             color = gender, group = gender)) + 
+  geom_line() +
+  labs(title = "Percentage Of NBER Working Papers Published In Journals", 
+       subtitle = "Overall (red) and by gender") 
+
+temp_df <- temp3 %>% 
+  group_by(date1) %>% 
+  summarise("pub_perc" = mean(published,na.rm=TRUE)) %>% 
+  filter(date1%in%1985:2010)
+
+plot3 + 
+  geom_line(data = temp_df, 
+            aes(x = date1, y = pub_perc, group=1), 
+            color = "red", size = 2) 
+
+# Publication rates by research programe (needs work)
+
+if (FALSE) {
+  table1 <- table(date1, categories)
+  df3 <- tapply(published, INDEX = list(date1, categories), function(x) mean(x, na.rm = TRUE)) 
+  df3 <- df3[which(rownames(df3)%in%1980:2015),]
+  
+  df2 <- as.data.frame.matrix(prop.table(table1, 1))
+  df2 <- df2[which(rownames(df2)%in%1980:2015),]
+  
+  quartz()
+  plot(1980:2015,df2[,1], type ="l" ,lwd=0.1, ylim = c(0,.4))
+  for (i in ( 2:(dim(df2)[2]) ) ) lines(1980:2015,df2[,i], type ="l" ,lwd=1)
+  
+  lines(1980:2015,df2[,"EFG"], type ="l" ,lwd=1, col="red")
+  lines(1980:2015,df2[,"LS"], type ="l" ,lwd=1, col="blue")
+  lines(1980:2015,df2[,"PE"], type ="l" ,lwd=1, col="green")
+  
+  df3[is.na(df3)] <- 0
+  
+  apply(df3,2, function(x) which(x==0))
+  
+  quartz()
+  plot(1980:2015,df3[,1], type ="l" ,lwd=0.1, ylim = c(0,1))
+  for (i in ( 2:(dim(df3)[2]) ) ) lines(1980:2015,df3[,i], type ="l" ,lwd=1)
+  lines(1980:2015,df3[,"EFG"], type ="l" ,lwd=1, col="red")
+  lines(1980:2015,df3[,"LS"], type ="l" ,lwd=1, col="blue")
+  lines(1980:2015,df3[,"PE"], type ="l" ,lwd=1, col="green")
+  
+}
+
+## Any effect of alphabetical order?
+## Gender over time
+# last name is not working well
+
+asd1 <- strsplit(df$authors, "-*-", fixed = TRUE)
+#Total number of authors
+length(unique(unlist(asd1)))
+
+n <- sapply(asd1, length)
+published <- rep(df$published, times = n)
+
+first.name <- gsub("^(.*?),\\s(\\w+).*", "\\2",  unlist(asd1))
+last.name <- gsub("^(.*?),\\s(\\w+).*", "\\1",  unlist(asd1))
+first.letter <- toupper(substr(last.name, 1, 1))
+temp1 <- gender(first.name)
+temp1 <- temp1[!duplicated(temp1),]
+
+
+date1 <- format(as.Date( rep(df$date, times = n) ), "%Y")
+
+temp2 <- data.frame("name"=first.name, "full_name" = unlist(asd1), date1, published, first.letter)
+
+temp3  <- right_join(temp1, temp2)
+
+#####Droping 1545 (of 11639) authors that do not a predicted gender
+temp3 <- temp3[!is.na(temp3$gender),]
+
+#Publishing rate by gender over time
+df2 <- (tapply(temp3$published!="Not published", list(temp3$date1, temp3$gender), mean))
+plot(x = 1973:2015, y = df2[,"female"], type="l", lty=3)
+lines(x = 1973:2015, y = df2[,"male"], type="l", lty=1)
+legend("topright",lty=c(3,1), legend = c("Female", "Male"))
+
+published <- rep(df$published, times = n)
+df1 <- data.frame(published, unlist(asd1))
+
+#Overall count of WP by first letter
+df2 <- tapply(df1$published, first.letter, length)
+barplot(df2[(rownames(df2)%in%LETTERS)])
+
+#Overall percentage published
+tapply(df1$published!="Not published", as.factor(first.letter%in%LETTERS[1:13]), mean)
+
+#Regression (almost done to include gender interaction)
+#Delete letters with very few authors:
+to.delete <- which(LETTERS%in%c("Q", "U", "X", "Y", "Z"))
+
+df3 <- data.frame(y = (temp3$published!="Not published"), 
+                  first.letter=temp3$first.letter, 
+                  gender=temp3$gender)
+df3 <- df3[df3$first.letter%in%LETTERS[-to.delete],]
+fit1 <- lm(y~first.letter-1, data = df3)
+arm::coefplot(fit1)
+abline(v = mean(df3$y))
+
+# If last name is between A-H then mean publication rate is 2% higher. 
+d1 <- 1*(df3$first.letter%in%LETTERS[1:8])
+coef(summary(lm(df3$y~d1)))
+
+##########################################
+######## Don't remember what comes next
+
+# Count of WP over time
+df2 <- (tapply(df1$published!="Not published", list(first.letter,format(as.Date(rep(df$date, times = n)), "%Y")), length))
+plot(1973:2015,df2[1,], type ="l" ,lwd=0.1, ylim = c(0,300), col="red")
+for (i in ( 2:(dim(df2)[1]/2) ) ) lines(1973:2015,df2[i,], type ="l" ,lwd=1, col="red")
+for (i in ( (dim(df2)[1]/2+1):(dim(df2)[1]) ) ) lines(1973:2015,df2[i,], type ="l" ,lwd=1, col="Blue")
+
+# Percentage published over time
+df2 <- (tapply(df1$published!="Not published", list(first.letter,format(as.Date(rep(df$date, times = n)), "%Y")), mean))
+plot(1973:2015,df2[1,], type ="l" ,lwd=0.1, ylim = c(0,1), col="red")
+for (i in ( 2:(dim(df2)[1]/2) ) ) lines(1973:2015,df2[i,], type ="l" ,lwd=1, col="red")
+for (i in ( (dim(df2)[1]/2+1):(dim(df2)[1]) ) ) lines(1973:2015,df2[i,], type ="l" ,lwd=1, col="Blue")
+

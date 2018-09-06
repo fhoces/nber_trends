@@ -68,7 +68,7 @@ last.wp.f <- function() {
 
 # Get the last working paper
 last.wp <- last.wp.f()
-last.wp <- 10
+#last.wp <- 10
 # Define a vector that enumerates all possible papers
 papers <- 1:last.wp
 
@@ -137,7 +137,7 @@ scrape.nber.f <- function(papers.var){
 
 # run the scrapping function
 start.time <- Sys.time()
-df <- scrape.nber.f(papers.var = 1:10)
+df <- scrape.nber.f(papers.var = papers)
 print(Sys.time() - start.time)
 
 # save, export to dataverse, pull from dv, set random check, do plot, 
@@ -145,9 +145,9 @@ print(Sys.time() - start.time)
 
 
 
-##########################################################################################
-##########################################################################################
-##########################################################################################
+#################################################################################
+### Attempt to updload data to datavers (failed so far)
+if (FALSE) {
 # Identify the data: (apply some hash function)
 
 # upload to dataverse/osf
@@ -191,26 +191,21 @@ sub <- create_component(id = main, title = "Data")
 x <- rnorm(1000, 2, 10)
 write.csv(x, 'test.csv')
 up_df <- upload_files(id = sub, path = "test.csv")
-```
-
-
-
-## Download data from Dataverse/OSF
-
-```{r}
 download.file("https://ndownloader.figshare.com/files/2292169",
               "data/portal_data_joined.csv")
 #You are now ready to load the data:
 
 surveys <- read.csv("portal_data_joined.csv")
+}
 ```
+
 
 
 
 ## Read data
 
 ```{r}
-load("~/Desktop/sandbox/trends/all_NBER_Papers_v1.RData")
+load("~/rawdata/all_NBER_Papers_v1.RData")
 ```
 
 
