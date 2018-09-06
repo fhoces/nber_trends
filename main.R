@@ -424,3 +424,16 @@ for (i in ( 2:(dim(df2)[1]/2) ) ) lines(1973:2015,df2[i,], type ="l" ,lwd=1, col
 for (i in ( (dim(df2)[1]/2+1):(dim(df2)[1]) ) ) lines(1973:2015,df2[i,], type ="l" ,lwd=1, col="Blue")
 
 }
+
+
+
+##########################################
+######## Here you can help to verify the gender algorithm
+temp3$verificatoin <- NA
+num1 <- sample(70000, 1)
+temp3[num1, c("full_name", "gender")]
+
+temp3$verificatoin[num1] <- 1  # 1 if correct, 0 if incorrect
+
+
+# Save, commit, push and create a pull request when done. 
