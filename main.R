@@ -271,19 +271,6 @@ plot1 +
             aes(x = date1, y = perc_fem, group=1), 
             color = "red", size = 2) 
 
-
-
-######
-df1 <- df[!is.na(df$NBER_cat), ]
-asd1 <- strsplit(df1$NBER_cat, "-*-", fixed = TRUE)
-length(unique(unlist(asd1)))
-n <- sapply(asd1, length)
-published <- rep(1*(df1$published!="Not published"), times = n)
-date1 <- format(as.Date( rep(df1$date, times = n) ), "%Y")
-categories <- unlist(asd1)
-authors <- rep((df1$authors), times = n)
-df3 <- data.frame(authors,published, categories, date1, stringsAsFactors = FALSE)
-
 # Publication rates over time by NBER program & total 
 plot2 <- temp3 %>% 
   group_by(date1, categories) %>% 
@@ -327,7 +314,7 @@ temp_df <- temp3 %>%
 plot3 + 
   geom_line(data = temp_df, 
             aes(x = date1, y = pub_perc, group=1), 
-            color = "red", size = 2) 
+            color = "red", size = 1) 
 
 # Publication rates by research programe (needs work)
 
@@ -422,6 +409,8 @@ coef(summary(lm(df3$y~d1)))
 ##########################################
 ######## Don't remember what comes next
 
+if (FALSE) {
+
 # Count of WP over time
 df2 <- (tapply(df1$published!="Not published", list(first.letter,format(as.Date(rep(df$date, times = n)), "%Y")), length))
 plot(1973:2015,df2[1,], type ="l" ,lwd=0.1, ylim = c(0,300), col="red")
@@ -434,3 +423,4 @@ plot(1973:2015,df2[1,], type ="l" ,lwd=0.1, ylim = c(0,1), col="red")
 for (i in ( 2:(dim(df2)[1]/2) ) ) lines(1973:2015,df2[i,], type ="l" ,lwd=1, col="red")
 for (i in ( (dim(df2)[1]/2+1):(dim(df2)[1]) ) ) lines(1973:2015,df2[i,], type ="l" ,lwd=1, col="Blue")
 
+}
