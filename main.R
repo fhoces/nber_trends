@@ -57,6 +57,7 @@ get.line.f <- function(pattern, group_pat) {
 }
 
 scrape.nber.f <- function(papers.var){
+  raw_lines <- NULL
   # Build a empty data set that will contain all the information of each paper (row) 
   df <- data.frame(authors = rep(NA, length(papers.var)), 
                    title  = rep(NA, length(papers.var)), 
