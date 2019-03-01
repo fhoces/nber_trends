@@ -226,7 +226,6 @@ load("rawdata/all_NBER_Papers_v1.RData")
 ```{r plot1}
 
 ##Plot 1
-
 df$num_authors <- sapply(strsplit(df$authors, "-*-", fixed = TRUE), length)
 
 df %>% mutate(time = format(as.Date(df$date), "%Y")) %>% 
@@ -239,7 +238,7 @@ df %>% mutate(time = format(as.Date(df$date), "%Y")) %>%
 
 #### Plot 2  
 
-```{r plot2}
+```{r plot2, warning=FALSE, message=FALSE}
 ##Plot 2
 
 # Extract NBER categories from html text
@@ -371,6 +370,17 @@ plot3 +
             color = "red", size = 1) 
 
 ```
+
+
+#### Verifying gender [WORKSHOP SECTION]  
+```{r check-gender}
+num1 = sample(20000, 1)
+temp3[num1,c("name", "gender")]
+verification <- cbind(temp3[num1,c("name", "gender")], "rownum" = num1, "correct" = 1)
+```
+
+
+
 
 #### Publication rates by research programe (incomplete)
 

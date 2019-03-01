@@ -569,11 +569,8 @@ temp2 &lt;- data.frame(&quot;name&quot;=first.name, date1, categories,
                     &quot;full_name&quot; =unlist(asd2), published)
 
 # Merge with gender
-temp3 &lt;- right_join(temp1, temp2)</code></pre>
-<pre><code>## Joining, by = &quot;name&quot;</code></pre>
-<pre><code>## Warning: Column `name` joining character vector and factor, coercing into
-## character vector</code></pre>
-<pre class="r"><code># Delete missing obs NEED TO UNDERSTAND THE MISMATCH (7471)
+temp3 &lt;- right_join(temp1, temp2)
+# Delete missing obs NEED TO UNDERSTAND THE MISMATCH (7471)
 temp3 &lt;- temp3[!is.na(temp3$gender),]
 
 # Plot percentage of female authors over time: general and by categories
